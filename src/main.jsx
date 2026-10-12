@@ -5,8 +5,7 @@ import App from './App'
 import { AuthProvider } from './auth/AuthContext'
 import { ToastProvider } from './components/ui'
 import './index.css'
-
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <ToastProvider>

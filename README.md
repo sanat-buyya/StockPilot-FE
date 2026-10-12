@@ -4,7 +4,7 @@ React frontend for StockPilot (inventory and order management). It talks to the 
 [StockPilot-BE](https://github.com/sanat-buyya/StockPilot-BE), whose README documents the business rules in full
 (order lifecycle and stock strategy, roles, dashboard metric definitions, API, deployment, limitations, AI disclosure).
 
-**Stack:** React 19 · TypeScript · Vite · Tailwind CSS 4 · react-router · lucide-react icons · Vitest
+**Stack:** React 19 · JavaScript (JSX) · Vite · Tailwind CSS 4 · react-router · lucide-react icons · Vitest
 
 ## Setup
 
@@ -21,7 +21,7 @@ The API must allow this origin: set `CORS_ORIGINS` on the backend (default `http
 | Script | Purpose |
 |---|---|
 | `npm run dev` | development server |
-| `npm run build` | type-check and production build to `dist/` |
+| `npm run build` | production build to `dist/` |
 | `npm test` | unit tests |
 
 | Environment variable | Purpose |
@@ -44,10 +44,10 @@ Loading, empty, error and success states are handled on every screen; layouts wo
 
 ```
 src/
-  api/        client.ts (fetch wrapper, ApiError, token storage), types.ts (API shapes)
+  api/        client.js (fetch wrapper, ApiError, token storage)
   auth/       AuthContext: session, workspace list, selected workspace, role
-  components/ ui.tsx (Button, Field, Modal, ConfirmDialog, Pagination, Toasts, badges), Layout, ProductForm
-  lib/        format.ts (money in integer cents, dates), hooks.ts (useAsync, useDebounced)
+  components/ ui.jsx (Button, Field, Modal, ConfirmDialog, Pagination, Toasts, badges), Layout, ProductForm
+  lib/        format.js (money in integer cents, dates), hooks.js (useAsync, useDebounced)
   pages/      one file per screen
 ```
 
@@ -73,7 +73,7 @@ src/
 
 ```bash
 npm test          # Vitest (unit)
-npm run build     # also runs the TypeScript type-check
+npm run lint      # oxlint
 ```
 
 Unit tests cover the money helpers (exact decimal parsing/summing, formatting). Business rules (stock, order lifecycle,
@@ -91,5 +91,6 @@ fallback for Vercel and Netlify. Set the backend's `CORS_ORIGINS` to the exact f
 ## Known limitations
 
 - No end-to-end (browser) test suite; UI behaviour beyond the money helpers was verified manually.
+- Plain JavaScript (no static types): API response shapes are documented in the backend README rather than enforced at compile time.
 - Token is not refreshed; after it expires (8 h) the user is sent back to the login page.
 - Currency is displayed as USD; the backend does not model currencies.

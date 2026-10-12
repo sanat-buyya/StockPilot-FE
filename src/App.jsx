@@ -11,18 +11,15 @@ import OrdersPage from './pages/OrdersPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import ProductsPage from './pages/ProductsPage'
 import TeamPage from './pages/TeamPage'
-
 function Protected() {
   const { ready, user } = useAuth()
   if (!ready) return <Spinner label="Loading your workspace…" />
   return user ? <Outlet /> : <Navigate to="/login" replace />
 }
-
 function OwnerOnly() {
   const { isOwner } = useAuth()
   return isOwner ? <Outlet /> : <Navigate to="/" replace />
 }
-
 export default function App() {
   const { ready } = useAuth()
   if (!ready) return <Spinner label="Loading…" />
