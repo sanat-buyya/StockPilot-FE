@@ -1,13 +1,20 @@
-import { Plus, Search } from 'lucide-react'
+import { AlertTriangle, Plus, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import ProductForm from '../components/ProductForm'
-import { Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner, StockBadge } from '../components/ui'
+import { Button, Card, EmptyState, ErrorBanner, Chip, Input, Pagination, Select, Spinner, StockBadge } from '../components/ui'
 import { formatMoney } from '../lib/format'
 import { useDebounced } from '../lib/hooks'
 import { fetchProducts, selectProductsList } from '../store/productsSlice'
+import { PAGE_SIZE } from '../lib/constants'
+
+const STATUS_CHIPS = [
+  { label: 'All', value: '' },
+  { label: 'Active', value: 'true' },
+  { label: 'Inactive', value: 'false' },
+]
 
 export default function ProductsPage() {
   const dispatch = useDispatch()
@@ -35,9 +42,9 @@ export default function ProductsPage() {
 
   const { items, meta, status, error } = useSelector(selectProductsList)
   const loading = status === 'loading'
-  const load = () => dispatch(fetchProducts({ q, active, lowStock, sort, dir, page, pageSize: 10 }))
+  const load = () => dispatch(fetchProducts({ q, active, lowStock, sort, dir, page, pageSize: PAGE_SIZE }))
   useEffect(() => {
-    dispatch(fetchProducts({ q, active, lowStock, sort, dir, page, pageSize: 10 }))
+    dispatch(fetchProducts({ q, active, lowStock, sort, dir, page, pageSize: PAGE_SIZE }))
   }, [dispatch, q, active, lowStock, sort, dir, page])
 
   const hasData = meta !== null
@@ -45,58 +52,74 @@ export default function ProductsPage() {
 
   return (
     <>
-      <PageHeader
-        actions={
-          isOwner && (
-            <Button onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4" aria-hidden />
-              New product
-            </Button>
-          )
-        }
-      />
-
       <Card>
-        <div className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="relative sm:col-span-2 lg:col-span-1">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" aria-hidden />
-            <Input
-              aria-label="Search products"
-              placeholder="Search name, SKU, description"
-              className="pl-9"
-              value={qInput}
+        <div className="space-y-3 border-b border-slate-200 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-56 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
+              <Input
+                aria-label="Search products"
+                placeholder="Search by name, SKU or description"
+                className="!min-h-9 !py-1 pl-9"
+                value={qInput}
+                onChange={(e) => {
+                  setQInput(e.target.value)
+                  update({ q: e.target.value })
+                }}
+              />
+            </div>
+            <Select
+              aria-label="Sort"
+              className="!min-h-9 !w-52 !py-1"
+              value={`${sort}:${dir}`}
               onChange={(e) => {
-                setQInput(e.target.value)
-                update({ q: e.target.value })
+                const [s, d] = e.target.value.split(':')
+                update({ sort: s, dir: d })
               }}
-            />
+            >
+              <option value="name:asc">Sort: Name A–Z</option>
+              <option value="name:desc">Sort: Name Z–A</option>
+              <option value="stock:asc">Sort: Stock, low to high</option>
+              <option value="stock:desc">Sort: Stock, high to low</option>
+              <option value="price:asc">Sort: Price, low to high</option>
+              <option value="price:desc">Sort: Price, high to low</option>
+              <option value="created:desc">Sort: Newest first</option>
+            </Select>
+            {isOwner && (
+              <Button className="!min-h-9 !py-1" onClick={() => setCreating(true)}>
+                <Plus className="h-4 w-4" aria-hidden />
+                New product
+              </Button>
+            )}
           </div>
-          <Select aria-label="Active filter" value={active} onChange={(e) => update({ active: e.target.value })}>
-            <option value="">All products</option>
-            <option value="true">Active only</option>
-            <option value="false">Inactive only</option>
-          </Select>
-          <Select aria-label="Stock filter" value={lowStock} onChange={(e) => update({ lowStock: e.target.value })}>
-            <option value="">Any stock level</option>
-            <option value="true">Low stock</option>
-            <option value="false">Healthy stock</option>
-          </Select>
-          <Select
-            aria-label="Sort"
-            value={`${sort}:${dir}`}
-            onChange={(e) => {
-              const [s, d] = e.target.value.split(':')
-              update({ sort: s, dir: d })
-            }}
-          >
-            <option value="name:asc">Name A–Z</option>
-            <option value="name:desc">Name Z–A</option>
-            <option value="stock:asc">Stock: low to high</option>
-            <option value="stock:desc">Stock: high to low</option>
-            <option value="price:asc">Price: low to high</option>
-            <option value="price:desc">Price: high to low</option>
-            <option value="created:desc">Newest first</option>
-          </Select>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Status filter">
+              {STATUS_CHIPS.map((c) => (
+                <Chip key={c.label} active={active === c.value} onClick={() => update({ active: c.value })}>
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
+            <span className="h-5 w-px bg-slate-200" aria-hidden />
+            <Chip active={lowStock === 'true'} onClick={() => update({ lowStock: lowStock === 'true' ? '' : 'true' })}>
+              <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+              Low stock
+            </Chip>
+            {filtered && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQInput('')
+                  setSp({}, { replace: true })
+                }}
+                className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (

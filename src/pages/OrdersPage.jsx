@@ -1,11 +1,20 @@
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner, StatusBadge } from '../components/ui'
+import { Button, Card, Chip, DateInputs, EmptyState, ErrorBanner, Input, Pagination, Spinner, StatusBadge } from '../components/ui'
 import { formatDateTime, formatMoney } from '../lib/format'
 import { useDebounced } from '../lib/hooks'
 import { fetchOrders, selectOrdersList } from '../store/ordersSlice'
+import { PAGE_SIZE } from '../lib/constants'
+
+const STATUS_CHIPS = [
+  { label: 'All', value: '' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Confirmed', value: 'confirmed' },
+  { label: 'Completed', value: 'completed' },
+  { label: 'Cancelled', value: 'cancelled' },
+]
 
 export default function OrdersPage() {
   const dispatch = useDispatch()
@@ -30,9 +39,9 @@ export default function OrdersPage() {
 
   const { items, meta, status: loadStatus, error } = useSelector(selectOrdersList)
   const loading = loadStatus === 'loading'
-  const load = () => dispatch(fetchOrders({ status, q, from, to, page, pageSize: 10 }))
+  const load = () => dispatch(fetchOrders({ status, q, from, to, page, pageSize: PAGE_SIZE }))
   useEffect(() => {
-    if (!rangeInvalid) dispatch(fetchOrders({ status, q, from, to, page, pageSize: 10 }))
+    if (!rangeInvalid) dispatch(fetchOrders({ status, q, from, to, page, pageSize: PAGE_SIZE }))
   }, [dispatch, rangeInvalid, status, q, from, to, page])
 
   const hasData = meta !== null
@@ -40,54 +49,63 @@ export default function OrdersPage() {
 
   return (
     <>
-      <PageHeader
-        actions={
-          <Link to="/orders/new">
-            <Button>
-              <Plus className="h-4 w-4" aria-hidden />
-              New order
-            </Button>
-          </Link>
-        }
-      />
-
       <Card>
-        <div className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" aria-hidden />
-            <Input
-              aria-label="Search by order number"
-              placeholder="Order number, e.g. ORD-000012"
-              className="pl-9"
-              value={qInput}
-              onChange={(e) => {
-                setQInput(e.target.value)
-                update({ q: e.target.value })
-              }}
-            />
+        <div className="space-y-3 border-b border-slate-200 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-56 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden />
+              <Input
+                aria-label="Search by order number"
+                placeholder="Search by order number, e.g. ORD-000012"
+                className="!min-h-9 !py-1 pl-9"
+                value={qInput}
+                onChange={(e) => {
+                  setQInput(e.target.value)
+                  update({ q: e.target.value })
+                }}
+              />
+            </div>
+            <Link to="/orders/new">
+              <Button className="!min-h-9 !py-1">
+                <Plus className="h-4 w-4" aria-hidden />
+                New order
+              </Button>
+            </Link>
           </div>
-          <Select aria-label="Status filter" value={status} onChange={(e) => update({ status: e.target.value })}>
-            <option value="">All statuses</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </Select>
-          <Input
-            aria-label="Created from"
-            type="date"
-            value={from}
-            max={to || undefined}
-            onChange={(e) => update({ from: e.target.value })}
-          />
-          <Input
-            aria-label="Created to"
-            type="date"
-            value={to}
-            min={from || undefined}
-            onChange={(e) => update({ to: e.target.value })}
-            invalid={rangeInvalid}
-          />
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Status filter">
+              {STATUS_CHIPS.map((c) => (
+                <Chip key={c.label} active={status === c.value} onClick={() => update({ status: c.value })}>
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 lg:ml-auto">
+              <DateInputs
+                from={from}
+                to={to}
+                onFrom={(v) => update({ from: v })}
+                onTo={(v) => update({ to: v })}
+                invalid={rangeInvalid}
+                fromLabel="Created from"
+                toLabel="Created to"
+              />
+              {filtered && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQInput('')
+                    setSp({}, { replace: true })
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
         </div>
         {rangeInvalid && (
           <div className="p-4">

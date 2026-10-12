@@ -4,18 +4,17 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { errorMessage } from '../lib/hooks'
 import { useAuth } from '../auth/useAuth'
 import { Button, ErrorBanner, Field, Input } from '../components/ui'
+/** Centered card holding the brand, the form and the switch-page link, all in one place. */
 function Shell({ title, children, footer }) {
   return (
     <div className="flex min-h-full items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-4 flex items-center justify-center gap-2 text-2xl font-bold text-brand-700">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center justify-center gap-2 text-2xl font-bold text-brand-700">
           <Boxes className="h-7 w-7" aria-hidden /> StockPilot
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="mb-5 text-xl font-semibold">{title}</h1>
-          {children}
-        </div>
-        <p className="mt-4 text-center text-sm text-slate-600">{footer}</p>
+        <h1 className="mb-5 text-xl font-semibold">{title}</h1>
+        {children}
+        <p className="mt-5 border-t border-slate-200 pt-4 text-center text-sm text-slate-600">{footer}</p>
       </div>
     </div>
   )
@@ -85,33 +84,6 @@ export function LoginPage() {
           Sign in
         </Button>
       </form>
-      <div className="mt-5 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-        <p className="mb-1 font-semibold">
-          Demo accounts (password <code>Demo@12345</code>)
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded bg-white px-2 py-1 ring-1 ring-slate-300 hover:bg-slate-100"
-            onClick={() => {
-              setEmail('owner@stockpilot.demo')
-              setPassword('Demo@12345')
-            }}
-          >
-            Fill owner
-          </button>
-          <button
-            type="button"
-            className="rounded bg-white px-2 py-1 ring-1 ring-slate-300 hover:bg-slate-100"
-            onClick={() => {
-              setEmail('staff@stockpilot.demo')
-              setPassword('Demo@12345')
-            }}
-          >
-            Fill staff
-          </button>
-        </div>
-      </div>
     </Shell>
   )
 }

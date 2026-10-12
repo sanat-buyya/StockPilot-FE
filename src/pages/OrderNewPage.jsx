@@ -8,6 +8,7 @@ import { errorMessage } from '../lib/hooks'
 import { useDebounced } from '../lib/hooks'
 import { createOrder } from '../store/ordersSlice'
 import { fetchProductOptions, selectProductOptions } from '../store/productsSlice'
+import { PAGE_SIZE } from '../lib/constants'
 
 export default function OrderNewPage() {
   const dispatch = useDispatch()
@@ -24,9 +25,9 @@ export default function OrderNewPage() {
   const idemKey = useRef(`order-${crypto.randomUUID()}`)
 
   const options = useSelector(selectProductOptions)
-  const loadOptions = () => dispatch(fetchProductOptions({ q, active: true, pageSize: 8 }))
+  const loadOptions = () => dispatch(fetchProductOptions({ q, active: true, pageSize: PAGE_SIZE }))
   useEffect(() => {
-    dispatch(fetchProductOptions({ q, active: true, pageSize: 8 }))
+    dispatch(fetchProductOptions({ q, active: true, pageSize: PAGE_SIZE }))
   }, [dispatch, q])
 
   const lineFor = (id) => lines.find((l) => l.product.id === id)

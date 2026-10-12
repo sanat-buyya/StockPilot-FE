@@ -1,10 +1,12 @@
+import { X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Card, EmptyState, ErrorBanner, Input, Pagination, Select, Spinner } from '../components/ui'
+import { Card, DateInputs, EmptyState, ErrorBanner, Pagination, Select, Spinner } from '../components/ui'
 import { REASON_LABELS, formatDateTime, signed } from '../lib/format'
 import { fetchAdjustments, selectAdjustments } from '../store/inventorySlice'
 import { fetchProductOptions, selectProductOptions } from '../store/productsSlice'
+import { PAGE_SIZE } from '../lib/constants'
 
 export default function InventoryPage() {
   const dispatch = useDispatch()
@@ -29,13 +31,13 @@ export default function InventoryPage() {
   const products = useSelector(selectProductOptions)
   const { items, meta, status, error } = useSelector(selectAdjustments)
   const loading = status === 'loading'
-  const load = () => dispatch(fetchAdjustments({ productId, reasonType, from, to, page, pageSize: 15 }))
+  const load = () => dispatch(fetchAdjustments({ productId, reasonType, from, to, page, pageSize: PAGE_SIZE }))
 
   useEffect(() => {
     dispatch(fetchProductOptions({ pageSize: 100, sort: 'name' }))
   }, [dispatch])
   useEffect(() => {
-    if (!rangeInvalid) dispatch(fetchAdjustments({ productId, reasonType, from, to, page, pageSize: 15 }))
+    if (!rangeInvalid) dispatch(fetchAdjustments({ productId, reasonType, from, to, page, pageSize: PAGE_SIZE }))
   }, [dispatch, rangeInvalid, productId, reasonType, from, to, page])
 
   const hasData = meta !== null
@@ -43,8 +45,13 @@ export default function InventoryPage() {
   return (
     <>
       <Card>
-        <div className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Select aria-label="Product filter" value={productId} onChange={(e) => update({ productId: e.target.value })}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 p-3">
+          <Select
+            aria-label="Product filter"
+            className="!min-h-9 !w-64 !py-1"
+            value={productId}
+            onChange={(e) => update({ productId: e.target.value })}
+          >
             <option value="">All products</option>
             {products.items.map((p) => (
               <option key={p.id} value={p.id}>
@@ -52,7 +59,12 @@ export default function InventoryPage() {
               </option>
             ))}
           </Select>
-          <Select aria-label="Reason filter" value={reasonType} onChange={(e) => update({ reasonType: e.target.value })}>
+          <Select
+            aria-label="Reason filter"
+            className="!min-h-9 !w-56 !py-1"
+            value={reasonType}
+            onChange={(e) => update({ reasonType: e.target.value })}
+          >
             <option value="">All reasons</option>
             {Object.entries(REASON_LABELS).map(([k, v]) => (
               <option key={k} value={k}>
@@ -60,15 +72,19 @@ export default function InventoryPage() {
               </option>
             ))}
           </Select>
-          <Input aria-label="From date" type="date" value={from} max={to || undefined} onChange={(e) => update({ from: e.target.value })} />
-          <Input
-            aria-label="To date"
-            type="date"
-            value={to}
-            min={from || undefined}
-            onChange={(e) => update({ to: e.target.value })}
-            invalid={rangeInvalid}
-          />
+          <div className="flex items-center gap-2 lg:ml-auto">
+            <DateInputs from={from} to={to} onFrom={(v) => update({ from: v })} onTo={(v) => update({ to: v })} invalid={rangeInvalid} />
+            {(productId || reasonType || from || to) && (
+              <button
+                type="button"
+                onClick={() => setSp({}, { replace: true })}
+                className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+                Clear
+              </button>
+            )}
+          </div>
         </div>
         {rangeInvalid && (
           <div className="p-4">

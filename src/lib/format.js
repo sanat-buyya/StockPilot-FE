@@ -35,3 +35,18 @@ export const REASON_LABELS = {
   order_release: 'Released by cancelled order',
 }
 export const signed = (n) => (n > 0 ? `+${n}` : String(n))
+
+/** Today's calendar date in IST as YYYY-MM-DD. */
+export const todayIst = () => new Intl.DateTimeFormat('en-CA', { timeZone: IST }).format(new Date())
+
+/** Adds `days` (may be negative) to a YYYY-MM-DD date string. */
+export function shiftDate(date, days) {
+  const d = new Date(`${date}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+export const monthStart = (date) => `${date.slice(0, 8)}01`
+
+/** "13 Sep 2026" from a YYYY-MM-DD date string. */
+export const formatDay = (date) => formatDate(`${date}T00:00:00+05:30`)

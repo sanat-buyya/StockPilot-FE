@@ -1,12 +1,13 @@
-import { AlertTriangle, IndianRupee, Package, ShoppingCart } from 'lucide-react'
+import { AlertTriangle, CalendarDays, IndianRupee, Package, ShoppingCart, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
-import { Card, EmptyState, ErrorBanner, Field, Input, Spinner, StatusBadge } from '../components/ui'
-import { REASON_LABELS, formatDateTime, formatMoney, signed } from '../lib/format'
+import { Card, EmptyState, ErrorBanner, Input, Spinner, StatusBadge } from '../components/ui'
+import { REASON_LABELS, formatDateTime, formatDay, formatMoney, monthStart, shiftDate, signed, todayIst } from '../lib/format'
 import { fetchDashboard, selectDashboard } from '../store/dashboardSlice'
 
 const STATUSES = ['pending', 'confirmed', 'completed', 'cancelled']
+const RECENT_LIMIT = 5 // both "recent" lists show only the latest five
 
 function Stat({ icon, label, value, to, tone = 'slate', note }) {
   const body = (
@@ -36,31 +37,94 @@ export default function DashboardPage() {
   const loading = status === 'loading'
   const rangeInvalid = !!from && !!to && to < from
 
+  // Quick ranges (IST calendar days). "Last 30 days" is the server default, so it sends no dates.
+  const today = todayIst()
+  const presets = [
+    { label: 'Today', from: today, to: today },
+    { label: 'Last 7 days', from: shiftDate(today, -6), to: today },
+    { label: 'Last 30 days', from: '', to: '' },
+    { label: 'This month', from: monthStart(today), to: today },
+  ]
+  const isActive = (p) => p.from === from && p.to === to
+
   useEffect(() => {
     if (!rangeInvalid) dispatch(fetchDashboard({ from, to }))
   }, [dispatch, from, to, rangeInvalid])
 
   return (
     <>
-      <Card className="mb-4 p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <Field label="From" htmlFor="d-from">
-            <Input id="d-from" type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
-          </Field>
-          <Field label="To" htmlFor="d-to" error={rangeInvalid ? '"To" is before "From"' : undefined}>
+      <Card className="mb-4 p-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <CalendarDays className="h-4 w-4 text-slate-500" aria-hidden />
+            Period
+          </div>
+
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick ranges">
+            {presets.map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => {
+                  setFrom(p.from)
+                  setTo(p.to)
+                }}
+                aria-pressed={isActive(p)}
+                className={`rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset transition-colors ${
+                  isActive(p) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
             <Input
-              id="d-to"
+              aria-label="From date"
               type="date"
+              className="!min-h-9 !w-40 !py-1"
+              value={from}
+              max={to || undefined}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+            <span className="text-slate-400" aria-hidden>
+              –
+            </span>
+            <Input
+              aria-label="To date"
+              type="date"
+              className="!min-h-9 !w-40 !py-1"
               value={to}
               min={from || undefined}
               onChange={(e) => setTo(e.target.value)}
               invalid={rangeInvalid}
             />
-          </Field>
-          <p className="pb-2 text-xs text-slate-500">
-            {data ? `Showing orders created ${data.from} → ${data.to}.` : ''} Leave empty for the last 30 days.
-          </p>
+            {(from || to) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFrom('')
+                  setTo('')
+                }}
+                aria-label="Clear dates"
+                className="rounded p-1.5 text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
+        <p
+          className={`mt-2 text-xs ${rangeInvalid ? 'font-medium text-red-600' : 'text-slate-500'}`}
+          role={rangeInvalid ? 'alert' : undefined}
+        >
+          {rangeInvalid
+            ? '"To" date is before "From" date.'
+            : data
+              ? `Showing orders created ${formatDay(data.from)} – ${formatDay(data.to)}`
+              : ' '}
+        </p>
       </Card>
 
       {error && <ErrorBanner message={error} onRetry={() => dispatch(fetchDashboard({ from, to }))} />}
@@ -124,7 +188,7 @@ export default function DashboardPage() {
                 />
               ) : (
                 <ul className="divide-y divide-slate-100">
-                  {data.recentOrders.map((o) => (
+                  {data.recentOrders.slice(0, RECENT_LIMIT).map((o) => (
                     <li key={o.id}>
                       <Link to={`/orders/${o.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50">
                         <div className="min-w-0">
@@ -155,7 +219,7 @@ export default function DashboardPage() {
                 <EmptyState title="No stock changes yet" />
               ) : (
                 <ul className="divide-y divide-slate-100">
-                  {data.recentAdjustments.map((a) => (
+                  {data.recentAdjustments.slice(0, RECENT_LIMIT).map((a) => (
                     <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
                         <Link to={`/products/${a.productId}`} className="block truncate font-medium hover:underline">

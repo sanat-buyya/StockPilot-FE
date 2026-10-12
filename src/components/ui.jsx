@@ -267,3 +267,49 @@ export function Toaster() {
     </div>
   )
 }
+
+// ---------- Filter helpers ----------
+/** Rounded on/off button used for quick filters. */
+export function Chip({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        'inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ring-1 ring-inset transition-colors',
+        active ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+/** Compact "From – To" date inputs (YYYY-MM-DD). */
+export function DateInputs({ from, to, onFrom, onTo, invalid, fromLabel = 'From date', toLabel = 'To date' }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        aria-label={fromLabel}
+        type="date"
+        className="!min-h-9 !w-40 !py-1"
+        value={from}
+        max={to || undefined}
+        onChange={(e) => onFrom(e.target.value)}
+      />
+      <span className="text-slate-400" aria-hidden>
+        –
+      </span>
+      <Input
+        aria-label={toLabel}
+        type="date"
+        className="!min-h-9 !w-40 !py-1"
+        value={to}
+        min={from || undefined}
+        onChange={(e) => onTo(e.target.value)}
+        invalid={invalid}
+      />
+    </div>
+  )
+}

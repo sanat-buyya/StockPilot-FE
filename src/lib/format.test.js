@@ -35,3 +35,13 @@ describe('INR and IST formatting', () => {
     expect(formatDateTime('2026-10-12T20:00:00Z')).toMatch(/1:30/)
   })
 })
+
+describe('date helpers', () => {
+  it('shifts dates across month and year boundaries', async () => {
+    const { shiftDate, monthStart } = await import('./format')
+    expect(shiftDate('2026-10-12', -6)).toBe('2026-10-06')
+    expect(shiftDate('2026-03-01', -1)).toBe('2026-02-28')
+    expect(shiftDate('2026-12-31', 1)).toBe('2027-01-01')
+    expect(monthStart('2026-10-12')).toBe('2026-10-01')
+  })
+})

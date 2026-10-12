@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import ProductForm from '../components/ProductForm'
+import { PAGE_SIZE } from '../lib/constants'
 import {
   Button,
   Card,
@@ -39,7 +40,7 @@ function AdjustModal({ product, onClose, onDone }) {
   const n = Number(qty)
   // − / + step by one; stock may never be taken below zero, so − stops there
   const bump = (d) => {
-    setQty(String((Number.isFinite(n) ? n : 0) + d))
+    setQty((current) => String((Number.isFinite(Number(current)) ? Number(current) : 0) + d)) // functional update: fast repeated clicks never lose a step
     setErrors({})
   }
   const canDecrement = product.stockQuantity + (Number.isFinite(n) ? n : 0) - 1 >= 0
@@ -187,13 +188,13 @@ export default function ProductDetailPage() {
   const p = detail.item?.id === id ? detail.item : null
 
   const loadProduct = () => dispatch(fetchProduct(id))
-  const loadHistory = () => dispatch(fetchProductHistory({ productId: id, page, pageSize: 10, from, to }))
+  const loadHistory = () => dispatch(fetchProductHistory({ productId: id, page, pageSize: PAGE_SIZE, from, to }))
 
   useEffect(() => {
     dispatch(fetchProduct(id))
   }, [dispatch, id])
   useEffect(() => {
-    dispatch(fetchProductHistory({ productId: id, page, pageSize: 10, from, to }))
+    dispatch(fetchProductHistory({ productId: id, page, pageSize: PAGE_SIZE, from, to }))
   }, [dispatch, id, page, from, to])
 
   async function toggleActive() {
