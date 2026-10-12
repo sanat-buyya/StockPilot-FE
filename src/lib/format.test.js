@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { centsToString, signed, toCents } from './format'
+import { centsToString, formatDateTime, formatMoney, signed, toCents } from './format'
 describe('money helpers (integer cents, no floats)', () => {
   it('parses decimal strings exactly', () => {
     expect(toCents('19.99')).toBe(1999)
@@ -20,5 +20,18 @@ describe('money helpers (integer cents, no floats)', () => {
   it('signs quantity changes', () => {
     expect(signed(4)).toBe('+4')
     expect(signed(-4)).toBe('-4')
+  })
+})
+
+describe('INR and IST formatting', () => {
+  it('formats amounts as Indian Rupees with lakh grouping', () => {
+    expect(formatMoney('1148.10')).toBe('₹1,148.10')
+    expect(formatMoney('1234567.5')).toBe('₹12,34,567.50')
+  })
+
+  it('shows timestamps in IST regardless of the machine timezone', () => {
+    // 2026-10-12T20:00Z is 01:30 on 13 Oct in IST (UTC+05:30)
+    expect(formatDateTime('2026-10-12T20:00:00Z')).toContain('13')
+    expect(formatDateTime('2026-10-12T20:00:00Z')).toMatch(/1:30/)
   })
 })

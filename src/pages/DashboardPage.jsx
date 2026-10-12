@@ -1,9 +1,8 @@
-import { AlertTriangle, DollarSign, Package, ShoppingCart } from 'lucide-react'
+import { AlertTriangle, IndianRupee, Package, ShoppingCart } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../auth/useAuth'
-import { Card, EmptyState, ErrorBanner, Field, Input, PageHeader, Spinner, StatusBadge } from '../components/ui'
+import { Card, EmptyState, ErrorBanner, Field, Input, Spinner, StatusBadge } from '../components/ui'
 import { REASON_LABELS, formatDateTime, formatMoney, signed } from '../lib/format'
 import { fetchDashboard, selectDashboard } from '../store/dashboardSlice'
 
@@ -31,7 +30,6 @@ function Stat({ icon, label, value, to, tone = 'slate', note }) {
 
 export default function DashboardPage() {
   const dispatch = useDispatch()
-  const { workspace } = useAuth()
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const { item: data, status, error } = useSelector(selectDashboard)
@@ -44,14 +42,12 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle={workspace?.name} />
-
-      <Card className="mb-6 p-4">
+      <Card className="mb-4 p-4">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="From (UTC)" htmlFor="d-from">
+          <Field label="From" htmlFor="d-from">
             <Input id="d-from" type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
           </Field>
-          <Field label="To (UTC)" htmlFor="d-to" error={rangeInvalid ? '"To" is before "From"' : undefined}>
+          <Field label="To" htmlFor="d-to" error={rangeInvalid ? '"To" is before "From"' : undefined}>
             <Input
               id="d-to"
               type="date"
@@ -71,7 +67,7 @@ export default function DashboardPage() {
       {loading && !data && <Spinner />}
       {data && !rangeInvalid && (
         <div className={loading ? 'opacity-60 transition-opacity' : ''}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat icon={<Package className="h-4 w-4" />} label="Active products" value={data.activeProducts} to="/products" />
             <Stat
               icon={<AlertTriangle className="h-4 w-4" />}
@@ -82,7 +78,7 @@ export default function DashboardPage() {
               note="Active products at or below their threshold"
             />
             <Stat
-              icon={<DollarSign className="h-4 w-4" />}
+              icon={<IndianRupee className="h-4 w-4" />}
               label="Order value"
               value={formatMoney(data.orderValue)}
               note="Pending + confirmed + completed. Cancelled orders excluded."
@@ -95,7 +91,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <Card className="mt-6 p-4">
+          <Card className="mt-4 p-4">
             <h2 className="mb-3 text-sm font-semibold text-slate-700">Orders by status</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {STATUSES.map((s) => (
@@ -108,7 +104,7 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <Card>
               <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                 <h2 className="text-sm font-semibold text-slate-700">Recent orders</h2>

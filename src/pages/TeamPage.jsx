@@ -110,8 +110,6 @@ export default function TeamPage() {
   return (
     <>
       <PageHeader
-        title="Team"
-        subtitle="People with access to this workspace"
         actions={
           <Button onClick={() => setAdding(true)}>
             <UserPlus className="h-4 w-4" aria-hidden />

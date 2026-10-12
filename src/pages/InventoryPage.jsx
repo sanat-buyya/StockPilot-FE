@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner } from '../components/ui'
+import { Card, EmptyState, ErrorBanner, Input, Pagination, Select, Spinner } from '../components/ui'
 import { REASON_LABELS, formatDateTime, signed } from '../lib/format'
 import { fetchAdjustments, selectAdjustments } from '../store/inventorySlice'
 import { fetchProductOptions, selectProductOptions } from '../store/productsSlice'
@@ -42,10 +42,6 @@ export default function InventoryPage() {
 
   return (
     <>
-      <PageHeader
-        title="Stock history"
-        subtitle="Audit trail of every stock change: manual adjustments and order reservations. Dates are UTC days."
-      />
       <Card>
         <div className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <Select aria-label="Product filter" value={productId} onChange={(e) => update({ productId: e.target.value })}>

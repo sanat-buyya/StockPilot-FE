@@ -8,7 +8,7 @@ function Shell({ title, children, footer }) {
   return (
     <div className="flex min-h-full items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center justify-center gap-2 text-2xl font-bold text-brand-700">
+        <div className="mb-4 flex items-center justify-center gap-2 text-2xl font-bold text-brand-700">
           <Boxes className="h-7 w-7" aria-hidden /> StockPilot
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

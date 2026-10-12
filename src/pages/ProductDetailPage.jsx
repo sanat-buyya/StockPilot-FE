@@ -1,4 +1,4 @@
-import { ArrowLeft, Pencil, Power, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, Minus, Pencil, Plus, Power, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useParams } from 'react-router-dom'
@@ -29,7 +29,7 @@ const MANUAL = ['received', 'count_correction', 'damaged', 'returned', 'other']
 function AdjustModal({ product, onClose, onDone }) {
   const dispatch = useDispatch()
   const toast = useToast()
-  const [qty, setQty] = useState('')
+  const [qty, setQty] = useState('0')
   const [reason, setReason] = useState('received')
   const [note, setNote] = useState('')
   const [errors, setErrors] = useState({})
@@ -37,9 +37,16 @@ function AdjustModal({ product, onClose, onDone }) {
   const [confirming, setConfirming] = useState(false)
 
   const n = Number(qty)
+  // − / + step by one; stock may never be taken below zero, so − stops there
+  const bump = (d) => {
+    setQty(String((Number.isFinite(n) ? n : 0) + d))
+    setErrors({})
+  }
+  const canDecrement = product.stockQuantity + (Number.isFinite(n) ? n : 0) - 1 >= 0
   function validate() {
     const er = {}
-    if (!/^[+-]?\d+$/.test(qty.trim()) || n === 0) er.quantityChange = 'Enter a whole number other than 0 (use a minus for removals)'
+    if (!/^[+-]?\d+$/.test(qty.trim()) || n === 0)
+      er.quantityChange = 'Enter a quantity other than 0. Use + to add stock or − to remove it.'
     else if (product.stockQuantity + n < 0) er.quantityChange = `Stock cannot go below 0 (current: ${product.stockQuantity})`
     else if ((reason === 'received' || reason === 'returned') && n < 0)
       er.quantityChange = `"${REASON_LABELS[reason]}" must be a positive number`
@@ -104,19 +111,40 @@ function AdjustModal({ product, onClose, onDone }) {
             ))}
           </Select>
         </Field>
-        <Field label="Quantity change" htmlFor="a-qty" error={errors.quantityChange} hint="Positive adds stock, negative removes it">
-          <Input
-            id="a-qty"
-            inputMode="numeric"
-            value={qty}
-            onChange={(e) => {
-              setQty(e.target.value)
-              setErrors({})
-            }}
-            invalid={!!errors.quantityChange}
-            placeholder="e.g. 25 or -3"
-            autoFocus
-          />
+        <Field
+          label="Quantity change"
+          htmlFor="a-qty"
+          error={errors.quantityChange}
+          hint="Use + to add stock and − to remove it. You can also type a number."
+        >
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="!px-3"
+              aria-label="Decrease quantity"
+              disabled={!canDecrement}
+              onClick={() => bump(-1)}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <Input
+              id="a-qty"
+              inputMode="numeric"
+              className="text-center font-medium tabular-nums"
+              value={qty}
+              onChange={(e) => {
+                setQty(e.target.value)
+                setErrors({})
+              }}
+              onFocus={(e) => e.target.select()}
+              invalid={!!errors.quantityChange}
+              autoFocus
+            />
+            <Button type="button" variant="secondary" className="!px-3" aria-label="Increase quantity" onClick={() => bump(1)}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </Field>
         <Field label={reason === 'other' ? 'Note (required)' : 'Note (optional)'} htmlFor="a-note" error={errors.note}>
           <Input
@@ -199,7 +227,7 @@ export default function ProductDetailPage() {
         Products
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{p.name}</h1>
           <p className="mt-1 font-mono text-sm text-slate-500">{p.sku}</p>
@@ -224,7 +252,7 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         <Card className="p-4">
           <div className="text-sm text-slate-500">Current stock</div>
           <div className="mt-1 text-4xl font-semibold tabular-nums">{p.stockQuantity}</div>
@@ -234,7 +262,7 @@ export default function ProductDetailPage() {
           <div className="mt-2 text-xs text-slate-500">Low-stock threshold: {p.lowStockThreshold}</div>
         </Card>
         <Card className="p-4 md:col-span-2">
-          <dl className="grid grid-cols-2 gap-4 text-sm">
+          <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt className="text-slate-500">Unit price</dt>
               <dd className="mt-0.5 text-lg font-semibold tabular-nums">{formatMoney(p.unitPrice)}</dd>
@@ -259,11 +287,11 @@ export default function ProductDetailPage() {
         </Card>
       </div>
 
-      <Card className="mt-6">
+      <Card className="mt-4">
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 p-4">
           <div>
             <h2 className="font-semibold">Stock history</h2>
-            <p className="text-xs text-slate-500">Every change to this product's stock, newest first. Dates are UTC days.</p>
+            <p className="text-xs text-slate-500">Every change to this product's stock, newest first. Dates are IST days.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Field label="From" htmlFor="h-from">

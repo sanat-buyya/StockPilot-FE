@@ -9,17 +9,20 @@ export function centsToString(cents) {
   const abs = Math.abs(cents)
   return `${cents < 0 ? '-' : ''}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`
 }
+/** Business timezone: all dates are shown in India Standard Time. */
+export const IST = 'Asia/Kolkata'
+
 export function formatMoney(value) {
   const n = typeof value === 'number' ? value : Number(value)
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number.isFinite(n) ? n : 0)
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number.isFinite(n) ? n : 0)
 }
 export function formatDateTime(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: IST })
 }
 export function formatDate(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' })
+  return new Date(iso).toLocaleDateString('en-IN', { dateStyle: 'medium', timeZone: IST })
 }
 export const REASON_LABELS = {
   received: 'Stock received',

@@ -46,8 +46,6 @@ export default function ProductsPage() {
   return (
     <>
       <PageHeader
-        title="Products"
-        subtitle="Catalogue and current stock levels"
         actions={
           isOwner && (
             <Button onClick={() => setCreating(true)}>

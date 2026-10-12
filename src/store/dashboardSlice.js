@@ -3,7 +3,7 @@ import { get } from '../api/client'
 import { createWorkspace, logout, selectWorkspace } from './authSlice'
 import { addItemCases, apiThunk, itemState, wsPath } from './thunkUtils'
 
-/** params: from, to (YYYY-MM-DD, UTC). Empty = server default (last 30 days). */
+/** params: from, to (YYYY-MM-DD, IST). Empty = server default (last 30 days). */
 export const fetchDashboard = apiThunk('dashboard/fetch', (params, { getState }) => get(`${wsPath(getState)}/dashboard`, params))
 
 const initialState = { summary: itemState() }

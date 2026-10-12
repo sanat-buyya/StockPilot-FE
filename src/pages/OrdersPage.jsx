@@ -41,8 +41,6 @@ export default function OrdersPage() {
   return (
     <>
       <PageHeader
-        title="Orders"
-        subtitle="Stock is reserved when an order is created and returned if it is cancelled"
         actions={
           <Link to="/orders/new">
             <Button>
@@ -105,7 +103,7 @@ export default function OrdersPage() {
         {hasData && items.length === 0 && (
           <EmptyState
             title={filtered ? 'No orders match your filters' : 'No orders yet'}
-            hint={filtered ? 'Dates are UTC days. Try widening the range.' : 'Create an order to reserve stock for a customer.'}
+            hint={filtered ? 'Dates are IST days. Try widening the range.' : 'Create an order to reserve stock for a customer.'}
             action={
               filtered ? (
                 <Button

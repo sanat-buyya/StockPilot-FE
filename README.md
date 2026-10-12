@@ -34,7 +34,7 @@ Or register your own account and workspace on the sign-up page.
 ## Screens
 
 Login/Register · workspace switcher and "New workspace" · Dashboard (date range) · Products (search, filters, sort, pagination, create/edit) ·
-Product detail (stock, adjust with confirmation, history with date filters) · Stock history (all products) ·
+Product detail (stock, adjust with confirmation, history with date filters; dates are IST days) · Stock history (all products) ·
 Orders (status, order number and date filters) · New order (multi-line, live estimate, idempotent submit) ·
 Order detail (confirm / complete / cancel with confirmations) · Team (owner only).
 
@@ -47,8 +47,9 @@ src/
   api/        client.js: Axios instance, interceptors (bearer token, error normalisation, 401 handling), get/post/patch/del helpers
   store/      Redux Toolkit: one slice per feature + thunks (see below); thunkUtils.js shared helpers; index.js configureStore
   auth/       useAuth.js: hook over the auth slice (user, workspaces, selected workspace, role, actions)
-  components/ ui.jsx (Button, Field, Modal, ConfirmDialog, Pagination, Toaster, badges), Layout, ProductForm
-  lib/        format.js (money in integer cents, dates), hooks.js (useDebounced)
+  components/ ui.jsx (Button, Field, Modal, ConfirmDialog, Pagination, Toaster, badges), ProductForm
+  components/layout/ Layout shell: Sidebar.jsx (brand, workspace switcher, navigation, sign out), Header.jsx (active page name, profile avatar + name)
+  lib/        format.js (money in integer cents, dates), hooks.js (useDebounced), pageTitle.js (URL to page name, avatar initials)
   pages/      one file per screen
 ```
 
@@ -68,6 +69,7 @@ src/
 
 **Thunks.** Built with `createAsyncThunk` through `apiThunk`, which turns any failure into a serialisable rejection value. Thunks resolve the current workspace from the store (`wsPath`), so pages never pass workspace ids around. Mutations are awaited with `dispatch(thunk()).unwrap()` and surface field errors in forms.
 
+- **Layout:** `Layout.jsx` composes three regions: **Sidebar** (left; a slide-over drawer on mobile), **Header** (top; page name on the left, avatar + name on the right) and **Content** (the routed page).
 - **Routing:** `react-router`. `Protected` redirects to `/login`; `OwnerOnly` guards the Team page. Screens re-mount when the workspace changes.
 - **No cross-workspace leaks:** every data slice resets itself on `selectWorkspace`, `logout` and `createWorkspace`.
 - **Out-of-order protection:** list slices remember the latest `requestId`; a slow, superseded response is ignored (tested).
@@ -112,4 +114,4 @@ fallback for Vercel and Netlify. Set the backend's `CORS_ORIGINS` to the exact f
 - No end-to-end (browser) test suite; UI behaviour beyond the money helpers was verified manually.
 - Plain JavaScript (no static types): API response shapes are documented in the backend README rather than enforced at compile time.
 - Token is not refreshed; after it expires (8 h) the user is sent back to the login page.
-- Currency is displayed as USD; the backend does not model currencies.
+- Amounts are displayed in Indian Rupees (₹) and dates/times in IST (Asia/Kolkata); the backend does not model currencies or per-user timezones.

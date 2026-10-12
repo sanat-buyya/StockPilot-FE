@@ -64,7 +64,7 @@ export default function OrderDetailPage() {
         Orders
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight">{o.orderNumber}</h1>
@@ -155,7 +155,7 @@ export default function OrderDetailPage() {
         </div>
       </Card>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
         <Card className="p-4">
           <h2 className="mb-3 font-semibold">Timeline</h2>
           <ul className="space-y-2 text-sm">

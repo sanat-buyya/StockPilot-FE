@@ -84,9 +84,8 @@ export default function OrderNewPage() {
         <ArrowLeft className="h-4 w-4" aria-hidden />
         Orders
       </Link>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">New order</h1>
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-2">
           <div className="border-b border-slate-200 p-4">
             <h2 className="mb-2 font-semibold">Add products</h2>
