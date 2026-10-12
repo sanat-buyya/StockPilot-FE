@@ -1,7 +1,7 @@
 import { Boxes, ClipboardList, LayoutDashboard, LogOut, Menu, Package, Plus, ShoppingCart, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
+import { useAuth } from '../auth/useAuth'
 import { errorMessage } from '../lib/hooks'
 import { Button, ErrorBanner, Field, Input, Modal, Select, useToast } from './ui'
 const NAV = [

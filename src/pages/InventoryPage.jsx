@@ -1,11 +1,13 @@
+import { useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getPaged } from '../api/client'
-import { useWs } from '../auth/AuthContext'
 import { Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner } from '../components/ui'
 import { REASON_LABELS, formatDateTime, signed } from '../lib/format'
-import { useAsync } from '../lib/hooks'
+import { fetchAdjustments, selectAdjustments } from '../store/inventorySlice'
+import { fetchProductOptions, selectProductOptions } from '../store/productsSlice'
+
 export default function InventoryPage() {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const [sp, setSp] = useSearchParams()
   const productId = sp.get('productId') ?? ''
   const reasonType = sp.get('reasonType') ?? ''
@@ -13,20 +15,31 @@ export default function InventoryPage() {
   const to = sp.get('to') ?? ''
   const page = Number(sp.get('page') ?? 1)
   const rangeInvalid = !!from && !!to && to < from
+
   const update = (changes) => {
     const next = new URLSearchParams(sp)
-    for (const [k, v] of Object.entries(changes)) v ? next.set(k, v) : next.delete(k)
+    for (const [k, v] of Object.entries(changes)) {
+      if (v) next.set(k, v)
+      else next.delete(k)
+    }
     if (!('page' in changes)) next.delete('page')
     setSp(next, { replace: true })
   }
-  const products = useAsync(() => getPaged(`${ws}/products`, { pageSize: 100, sort: 'name' }), [ws])
-  const { data, loading, error, reload } = useAsync(
-    () =>
-      rangeInvalid
-        ? Promise.resolve(null)
-        : getPaged(`${ws}/inventory/adjustments`, { productId, reasonType, from, to, page, pageSize: 15 }),
-    [ws, productId, reasonType, from, to, page],
-  )
+
+  const products = useSelector(selectProductOptions)
+  const { items, meta, status, error } = useSelector(selectAdjustments)
+  const loading = status === 'loading'
+  const load = () => dispatch(fetchAdjustments({ productId, reasonType, from, to, page, pageSize: 15 }))
+
+  useEffect(() => {
+    dispatch(fetchProductOptions({ pageSize: 100, sort: 'name' }))
+  }, [dispatch])
+  useEffect(() => {
+    if (!rangeInvalid) dispatch(fetchAdjustments({ productId, reasonType, from, to, page, pageSize: 15 }))
+  }, [dispatch, rangeInvalid, productId, reasonType, from, to, page])
+
+  const hasData = meta !== null
+
   return (
     <>
       <PageHeader
@@ -37,7 +50,7 @@ export default function InventoryPage() {
         <div className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <Select aria-label="Product filter" value={productId} onChange={(e) => update({ productId: e.target.value })}>
             <option value="">All products</option>
-            {products.data?.data.map((p) => (
+            {products.items.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} ({p.sku})
               </option>
@@ -68,17 +81,17 @@ export default function InventoryPage() {
         )}
         {error && (
           <div className="p-4">
-            <ErrorBanner message={error} onRetry={reload} />
+            <ErrorBanner message={error} onRetry={load} />
           </div>
         )}
-        {loading && !data && !rangeInvalid && <Spinner />}
-        {data && data.data.length === 0 && (
+        {loading && !hasData && !rangeInvalid && <Spinner />}
+        {hasData && items.length === 0 && (
           <EmptyState title="No stock changes found" hint="Adjust a product's stock or place an order to see entries here." />
         )}
-        {data && data.data.length > 0 && (
+        {hasData && items.length > 0 && (
           <div className={loading ? 'opacity-60 transition-opacity' : ''}>
             <ul className="divide-y divide-slate-100">
-              {data.data.map((a) => (
+              {items.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <div className="min-w-0">
                     <Link to={`/products/${a.productId}`} className="block truncate font-medium hover:underline">
@@ -107,7 +120,7 @@ export default function InventoryPage() {
                 </li>
               ))}
             </ul>
-            <Pagination meta={data.meta} onPage={(n) => update({ page: String(n) })} />
+            <Pagination meta={meta} onPage={(n) => update({ page: String(n) })} />
           </div>
         )}
       </Card>

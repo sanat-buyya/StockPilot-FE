@@ -1,17 +1,20 @@
 import { Trash2, UserPlus } from 'lucide-react'
-import { useState } from 'react'
-import { ApiError, del, get, patch, post } from '../api/client'
-import { useAuth, useWs } from '../auth/AuthContext'
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { useAuth } from '../auth/useAuth'
 import { Button, Card, ConfirmDialog, ErrorBanner, Field, Input, Modal, PageHeader, Select, Spinner, useToast } from '../components/ui'
 import { formatDate } from '../lib/format'
-import { useAsync } from '../lib/hooks'
+import { errorMessage } from '../lib/hooks'
+import { addMember, changeMemberRole, fetchMembers, removeMember, selectTeam } from '../store/teamSlice'
+
 function AddMemberModal({ onClose, onAdded }) {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const toast = useToast()
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('staff')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
   async function submit(e) {
     e.preventDefault()
     if (!/^\S+@\S+\.\S+$/.test(email)) {
@@ -20,15 +23,16 @@ function AddMemberModal({ onClose, onAdded }) {
     }
     setBusy(true)
     try {
-      await post(`${ws}/members`, { email: email.trim(), role })
+      await dispatch(addMember({ email: email.trim(), role })).unwrap()
       toast('success', 'Member added')
       onAdded()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+      setError(errorMessage(err))
     } finally {
       setBusy(false)
     }
   }
+
   return (
     <Modal title="Add team member" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4" noValidate>
@@ -70,32 +74,39 @@ function AddMemberModal({ onClose, onAdded }) {
     </Modal>
   )
 }
+
 export default function TeamPage() {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const { user } = useAuth()
   const toast = useToast()
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState(null)
-  const { data, loading, error, reload } = useAsync(() => get(`${ws}/members`), [ws])
+  const { items, status, error } = useSelector(selectTeam)
+
+  useEffect(() => {
+    dispatch(fetchMembers())
+  }, [dispatch])
+
   async function changeRole(m, role) {
     try {
-      await patch(`${ws}/members/${m.userId}`, { role })
+      await dispatch(changeMemberRole({ userId: m.userId, role })).unwrap()
       toast('success', 'Role updated')
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Something went wrong')
+      toast('error', errorMessage(err))
+      dispatch(fetchMembers()) // put the select back to the server's value
     }
-    reload()
   }
+
   async function remove(m) {
     try {
-      await del(`${ws}/members/${m.userId}`)
+      await dispatch(removeMember(m.userId)).unwrap()
       toast('success', `${m.name} removed`)
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Something went wrong')
+      toast('error', errorMessage(err))
     }
     setRemoving(null)
-    reload()
   }
+
   return (
     <>
       <PageHeader
@@ -108,12 +119,12 @@ export default function TeamPage() {
           </Button>
         }
       />
-      {error && <ErrorBanner message={error} onRetry={reload} />}
-      {loading && !data && <Spinner />}
-      {data && (
+      {error && <ErrorBanner message={error} onRetry={() => dispatch(fetchMembers())} />}
+      {status === 'loading' && items.length === 0 && <Spinner />}
+      {items.length > 0 && (
         <Card>
           <ul className="divide-y divide-slate-100">
-            {data.map((m) => (
+            {items.map((m) => (
               <li key={m.userId} className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div className="min-w-0">
                   <div className="truncate font-medium">
@@ -148,7 +159,7 @@ export default function TeamPage() {
           onClose={() => setAdding(false)}
           onAdded={() => {
             setAdding(false)
-            reload()
+            dispatch(fetchMembers())
           }}
         />
       )}

@@ -1,13 +1,14 @@
 import { Plus, Search } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getPaged } from '../api/client'
-import { useWs } from '../auth/AuthContext'
 import { Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner, StatusBadge } from '../components/ui'
 import { formatDateTime, formatMoney } from '../lib/format'
-import { useAsync, useDebounced } from '../lib/hooks'
+import { useDebounced } from '../lib/hooks'
+import { fetchOrders, selectOrdersList } from '../store/ordersSlice'
+
 export default function OrdersPage() {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const [sp, setSp] = useSearchParams()
   const [qInput, setQInput] = useState(sp.get('q') ?? '')
   const q = useDebounced(qInput)
@@ -16,17 +17,27 @@ export default function OrdersPage() {
   const to = sp.get('to') ?? ''
   const page = Number(sp.get('page') ?? 1)
   const rangeInvalid = !!from && !!to && to < from
+
   const update = (changes) => {
     const next = new URLSearchParams(sp)
-    for (const [k, v] of Object.entries(changes)) v ? next.set(k, v) : next.delete(k)
+    for (const [k, v] of Object.entries(changes)) {
+      if (v) next.set(k, v)
+      else next.delete(k)
+    }
     if (!('page' in changes)) next.delete('page')
     setSp(next, { replace: true })
   }
-  const { data, loading, error, reload } = useAsync(
-    () => (rangeInvalid ? Promise.resolve(null) : getPaged(`${ws}/orders`, { status, q, from, to, page, pageSize: 10 })),
-    [ws, status, q, from, to, page],
-  )
+
+  const { items, meta, status: loadStatus, error } = useSelector(selectOrdersList)
+  const loading = loadStatus === 'loading'
+  const load = () => dispatch(fetchOrders({ status, q, from, to, page, pageSize: 10 }))
+  useEffect(() => {
+    if (!rangeInvalid) dispatch(fetchOrders({ status, q, from, to, page, pageSize: 10 }))
+  }, [dispatch, rangeInvalid, status, q, from, to, page])
+
+  const hasData = meta !== null
   const filtered = !!(status || q || from || to)
+
   return (
     <>
       <PageHeader
@@ -87,11 +98,11 @@ export default function OrdersPage() {
         )}
         {error && (
           <div className="p-4">
-            <ErrorBanner message={error} onRetry={reload} />
+            <ErrorBanner message={error} onRetry={load} />
           </div>
         )}
-        {loading && !data && !rangeInvalid && <Spinner />}
-        {data && data.data.length === 0 && (
+        {loading && !hasData && !rangeInvalid && <Spinner />}
+        {hasData && items.length === 0 && (
           <EmptyState
             title={filtered ? 'No orders match your filters' : 'No orders yet'}
             hint={filtered ? 'Dates are UTC days. Try widening the range.' : 'Create an order to reserve stock for a customer.'}
@@ -114,7 +125,7 @@ export default function OrdersPage() {
             }
           />
         )}
-        {data && data.data.length > 0 && (
+        {hasData && items.length > 0 && (
           <div className={loading ? 'opacity-60 transition-opacity' : ''}>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left text-sm">
@@ -129,7 +140,7 @@ export default function OrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {data.data.map((o) => (
+                  {items.map((o) => (
                     <tr key={o.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium">
                         <Link to={`/orders/${o.id}`} className="text-brand-700 hover:underline">
@@ -151,7 +162,7 @@ export default function OrdersPage() {
               </table>
             </div>
             <ul className="divide-y divide-slate-100 md:hidden">
-              {data.data.map((o) => (
+              {items.map((o) => (
                 <li key={o.id}>
                   <Link to={`/orders/${o.id}`} className="block space-y-1 p-4">
                     <div className="flex items-center justify-between">
@@ -166,7 +177,7 @@ export default function OrdersPage() {
                 </li>
               ))}
             </ul>
-            <Pagination meta={data.meta} onPage={(n) => update({ page: String(n) })} />
+            <Pagination meta={meta} onPage={(n) => update({ page: String(n) })} />
           </div>
         )}
       </Card>

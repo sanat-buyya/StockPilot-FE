@@ -1,8 +1,8 @@
 import { Boxes } from 'lucide-react'
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { ApiError } from '../api/client'
-import { useAuth } from '../auth/AuthContext'
+import { errorMessage } from '../lib/hooks'
+import { useAuth } from '../auth/useAuth'
 import { Button, ErrorBanner, Field, Input } from '../components/ui'
 function Shell({ title, children, footer }) {
   return (
@@ -42,7 +42,7 @@ export function LoginPage() {
       await login(email.trim(), password)
       nav('/', { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong')
+      setError(errorMessage(err))
     } finally {
       setBusy(false)
     }
@@ -138,8 +138,8 @@ export function RegisterPage() {
       await register({ ...form, name: form.name.trim(), email: form.email.trim(), workspaceName: form.workspaceName.trim() || undefined })
       nav('/', { replace: true })
     } catch (err) {
-      if (err instanceof ApiError && Object.keys(err.fieldErrors).length) setFields(err.fieldErrors)
-      else setError(err instanceof ApiError ? err.message : 'Something went wrong')
+      if (Object.keys(err?.fieldErrors ?? {}).length) setFields(err.fieldErrors)
+      else setError(errorMessage(err))
     } finally {
       setBusy(false)
     }

@@ -1,15 +1,16 @@
+import axios from 'axios'
+
 const BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:8090').replace(/\/$/, '')
 const TOKEN_KEY = 'stockpilot.token'
+
 export class ApiError extends Error {
-  status
-  code
-  details
   constructor(status, code, message, details) {
     super(message)
     this.status = status
     this.code = code
     this.details = details
   }
+
   /** Field-level validation messages keyed by field name. */
   get fieldErrors() {
     const out = {}
@@ -21,6 +22,7 @@ export class ApiError extends Error {
     return out
   }
 }
+
 export const tokenStore = {
   get: () => {
     try {
@@ -44,50 +46,54 @@ export const tokenStore = {
     }
   },
 }
+
 let onUnauthorized = () => {}
+/** The store registers a handler here so a 401 anywhere logs the user out. */
 export const setUnauthorizedHandler = (fn) => {
   onUnauthorized = fn
 }
-export function qs(params) {
-  if (!params) return ''
-  const sp = new URLSearchParams()
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== '') sp.set(k, String(v))
-  }
-  const s = sp.toString()
-  return s ? `?${s}` : ''
-}
-export async function api(method, path, opts = {}) {
-  const headers = { Accept: 'application/json', ...opts.headers }
+
+export const http = axios.create({
+  baseURL: BASE,
+  headers: { Accept: 'application/json' },
+  timeout: 30000,
+})
+
+// Attach the bearer token to every request (unless the call opts out, e.g. login/register).
+http.interceptors.request.use((config) => {
   const token = tokenStore.get()
-  if (token && opts.auth !== false) headers.Authorization = `Bearer ${token}`
-  if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
-  let res
-  try {
-    res = await fetch(`${BASE}${path}${qs(opts.query)}`, {
-      method,
-      headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
-    })
-  } catch {
-    throw new ApiError(0, 'NETWORK_ERROR', 'Cannot reach the server. Check your connection and try again.')
+  if (token && !config.skipAuth) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+// Normalise every failure into an ApiError carrying the API's error code/message/details.
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (!error.response) {
+      return Promise.reject(new ApiError(0, 'NETWORK_ERROR', 'Cannot reach the server. Check your connection and try again.'))
+    }
+    const { status, data } = error.response
+    const e = data?.error
+    if (status === 401 && !error.config?.skipAuth && tokenStore.get()) onUnauthorized()
+    return Promise.reject(new ApiError(status, e?.code ?? 'ERROR', e?.message ?? `Request failed (${status})`, e?.details))
+  },
+)
+
+/** Drops empty filter values so they are not sent as `?q=&status=`. */
+const clean = (params) =>
+  params ? Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')) : undefined
+
+export const get = (path, params) => http.get(path, { params: clean(params) }).then((r) => r.data.data)
+export const getPaged = (path, params) => http.get(path, { params: clean(params) }).then((r) => r.data)
+export const post = (path, body, { headers, skipAuth } = {}) => http.post(path, body ?? {}, { headers, skipAuth }).then((r) => r.data.data)
+export const patch = (path, body) => http.patch(path, body).then((r) => r.data.data)
+export const del = (path) => http.delete(path).then(() => undefined)
+
+/** Plain-object form of an error, safe to keep in Redux (thunk rejections must be serialisable). */
+export function serializeError(e) {
+  if (e instanceof ApiError) {
+    return { status: e.status, code: e.code, message: e.message, details: e.details, fieldErrors: e.fieldErrors }
   }
-  if (res.status === 204) return undefined
-  let json = null
-  try {
-    json = await res.json()
-  } catch {
-    /* empty or non-JSON body */
-  }
-  if (!res.ok) {
-    const e = json?.error
-    if (res.status === 401 && opts.auth !== false && token) onUnauthorized()
-    throw new ApiError(res.status, e?.code ?? 'ERROR', e?.message ?? `Request failed (${res.status})`, e?.details)
-  }
-  return json
+  return { status: 0, code: 'ERROR', message: 'Something went wrong. Please try again.', details: undefined, fieldErrors: {} }
 }
-export const get = (path, query) => api('GET', path, { query }).then((r) => r.data)
-export const getPaged = (path, query) => api('GET', path, { query })
-export const post = (path, body, headers) => api('POST', path, { body: body ?? {}, headers }).then((r) => r.data)
-export const patch = (path, body) => api('PATCH', path, { body }).then((r) => r.data)
-export const del = (path) => api('DELETE', path)

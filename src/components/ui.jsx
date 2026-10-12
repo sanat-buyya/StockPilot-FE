@@ -1,5 +1,7 @@
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Inbox, Loader2, X, XCircle } from 'lucide-react'
-import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { showToast } from '../store/uiSlice'
 const cx = (...c) => c.filter(Boolean).join(' ')
 const VARIANTS = {
   primary: 'bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-600/50',
@@ -243,33 +245,31 @@ export function Pagination({ meta, onPage }) {
     </div>
   )
 }
-const ToastCtx = createContext(() => {})
-export const useToast = () => useContext(ToastCtx)
-export function ToastProvider({ children }) {
-  const [toasts, setToasts] = useState([])
-  const push = useCallback((kind, text) => {
-    const id = Date.now() + Math.random()
-    setToasts((t) => [...t, { id, kind, text }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 5000)
-  }, [])
+
+// ---------- Toasts (state lives in the Redux ui slice) ----------
+/** Returns toast(kind, text); kind is 'success' | 'error'. */
+export function useToast() {
+  const dispatch = useDispatch()
+  return useCallback((kind, text) => dispatch(showToast(kind, text)), [dispatch])
+}
+
+export function Toaster() {
+  const toasts = useSelector((s) => s.ui.toasts)
   return (
-    <ToastCtx.Provider value={push}>
-      {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            role="status"
-            className={cx(
-              'pointer-events-auto flex max-w-md items-start gap-2 rounded-lg px-4 py-3 text-sm text-white shadow-lg',
-              t.kind === 'success' ? 'bg-emerald-600' : 'bg-red-600',
-            )}
-          >
-            {t.kind === 'success' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
-            <span>{t.text}</span>
-          </div>
-        ))}
-      </div>
-    </ToastCtx.Provider>
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          role="status"
+          className={cx(
+            'pointer-events-auto flex max-w-md items-start gap-2 rounded-lg px-4 py-3 text-sm text-white shadow-lg',
+            t.kind === 'success' ? 'bg-emerald-600' : 'bg-red-600',
+          )}
+        >
+          {t.kind === 'success' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+          <span>{t.text}</span>
+        </div>
+      ))}
+    </div>
   )
 }

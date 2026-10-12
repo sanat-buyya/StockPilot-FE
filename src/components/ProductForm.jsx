@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { ApiError, patch, post } from '../api/client'
-import { useWs } from '../auth/AuthContext'
+import { useDispatch } from 'react-redux'
+import { errorMessage } from '../lib/hooks'
+import { createProduct, updateProduct } from '../store/productsSlice'
 import { Button, ErrorBanner, Field, Input, Modal, Textarea, useToast } from './ui'
+
 /** Create (no `product`) or edit. Stock is only settable on create; afterwards it changes through audited adjustments. */
 export default function ProductForm({ product, onClose, onSaved }) {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const toast = useToast()
   const editing = !!product
   const [f, setF] = useState({
@@ -22,6 +24,7 @@ export default function ProductForm({ product, onClose, onSaved }) {
     setF((s) => ({ ...s, [k]: e.target.value }))
     setErrors((er) => ({ ...er, [k]: '' }))
   }
+
   function validate() {
     const er = {}
     if (!f.name.trim()) er.name = 'Name is required'
@@ -32,6 +35,7 @@ export default function ProductForm({ product, onClose, onSaved }) {
     if (!/^\d+$/.test(f.lowStockThreshold)) er.lowStockThreshold = 'Whole number, 0 or more'
     return er
   }
+
   async function submit(e) {
     e.preventDefault()
     const er = validate()
@@ -48,16 +52,17 @@ export default function ProductForm({ product, onClose, onSaved }) {
       ...(editing ? {} : { stockQuantity: Number(f.stockQuantity) }),
     }
     try {
-      const saved = editing ? await patch(`${ws}/products/${product.id}`, body) : await post(`${ws}/products`, body)
+      const saved = await dispatch(editing ? updateProduct({ id: product.id, changes: body }) : createProduct(body)).unwrap()
       toast('success', editing ? 'Product updated' : 'Product created')
       onSaved(saved)
     } catch (err) {
-      if (err instanceof ApiError && Object.keys(err.fieldErrors).length) setErrors(err.fieldErrors)
-      else setFormError(err instanceof ApiError ? err.message : 'Something went wrong')
+      if (Object.keys(err?.fieldErrors ?? {}).length) setErrors(err.fieldErrors)
+      else setFormError(errorMessage(err))
     } finally {
       setBusy(false)
     }
   }
+
   return (
     <Modal title={editing ? 'Edit product' : 'New product'} onClose={onClose} wide>
       <form onSubmit={submit} className="space-y-4" noValidate>

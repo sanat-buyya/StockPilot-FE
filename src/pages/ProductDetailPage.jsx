@@ -1,8 +1,8 @@
 import { ArrowLeft, Pencil, Power, SlidersHorizontal } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link, useParams } from 'react-router-dom'
-import { ApiError, get, getPaged, patch, post } from '../api/client'
-import { useAuth, useWs } from '../auth/AuthContext'
+import { useAuth } from '../auth/useAuth'
 import ProductForm from '../components/ProductForm'
 import {
   Button,
@@ -20,10 +20,14 @@ import {
   useToast,
 } from '../components/ui'
 import { REASON_LABELS, formatDateTime, formatMoney, signed } from '../lib/format'
-import { useAsync } from '../lib/hooks'
+import { errorMessage } from '../lib/hooks'
+import { fetchProductHistory, selectProductHistory } from '../store/inventorySlice'
+import { adjustStock, fetchProduct, selectProductDetail, updateProduct } from '../store/productsSlice'
+
 const MANUAL = ['received', 'count_correction', 'damaged', 'returned', 'other']
+
 function AdjustModal({ product, onClose, onDone }) {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const toast = useToast()
   const [qty, setQty] = useState('')
   const [reason, setReason] = useState('received')
@@ -31,6 +35,7 @@ function AdjustModal({ product, onClose, onDone }) {
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [confirming, setConfirming] = useState(false)
+
   const n = Number(qty)
   function validate() {
     const er = {}
@@ -42,24 +47,27 @@ function AdjustModal({ product, onClose, onDone }) {
     if (reason === 'other' && !note.trim()) er.note = 'A note is required for “Other”'
     return er
   }
+
   function review(e) {
     e.preventDefault()
     const er = validate()
     setErrors(er)
     if (Object.keys(er).length === 0) setConfirming(true)
   }
+
   async function apply() {
     setFormError('')
     try {
-      await post(`${ws}/products/${product.id}/adjustments`, { quantityChange: n, reasonType: reason, note: note.trim() || undefined })
+      await dispatch(adjustStock({ id: product.id, quantityChange: n, reasonType: reason, note: note.trim() || undefined })).unwrap()
       toast('success', `Stock updated to ${product.stockQuantity + n}`)
       onDone()
     } catch (err) {
       setConfirming(false)
-      if (err instanceof ApiError && Object.keys(err.fieldErrors).length) setErrors(err.fieldErrors)
-      else setFormError(err instanceof ApiError ? err.message : 'Something went wrong')
+      if (Object.keys(err?.fieldErrors ?? {}).length) setErrors(err.fieldErrors)
+      else setFormError(errorMessage(err))
     }
   }
+
   if (confirming) {
     return (
       <ConfirmDialog
@@ -79,6 +87,7 @@ function AdjustModal({ product, onClose, onDone }) {
       />
     )
   }
+
   return (
     <Modal title={`Adjust stock · ${product.name}`} onClose={onClose}>
       <form onSubmit={review} className="space-y-4" noValidate>
@@ -131,9 +140,10 @@ function AdjustModal({ product, onClose, onDone }) {
     </Modal>
   )
 }
+
 export default function ProductDetailPage() {
   const { id } = useParams()
-  const ws = useWs()
+  const dispatch = useDispatch()
   const { isOwner } = useAuth()
   const toast = useToast()
   const [editing, setEditing] = useState(false)
@@ -142,37 +152,46 @@ export default function ProductDetailPage() {
   const [page, setPage] = useState(1)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
-  const product = useAsync(() => get(`${ws}/products/${id}`), [ws, id])
-  const history = useAsync(() => getPaged(`${ws}/products/${id}/adjustments`, { page, pageSize: 10, from, to }), [ws, id, page, from, to])
-  const p = product.data
-  const refresh = () => {
-    product.reload()
-    history.reload()
-  }
+
+  const detail = useSelector(selectProductDetail)
+  const history = useSelector(selectProductHistory)
+  // ignore a previously viewed product still sitting in the store
+  const p = detail.item?.id === id ? detail.item : null
+
+  const loadProduct = () => dispatch(fetchProduct(id))
+  const loadHistory = () => dispatch(fetchProductHistory({ productId: id, page, pageSize: 10, from, to }))
+
+  useEffect(() => {
+    dispatch(fetchProduct(id))
+  }, [dispatch, id])
+  useEffect(() => {
+    dispatch(fetchProductHistory({ productId: id, page, pageSize: 10, from, to }))
+  }, [dispatch, id, page, from, to])
+
   async function toggleActive() {
-    if (!p) return
     try {
-      await patch(`${ws}/products/${p.id}`, { active: !p.active })
+      await dispatch(updateProduct({ id: p.id, changes: { active: !p.active } })).unwrap()
       toast('success', p.active ? 'Product deactivated' : 'Product reactivated')
-      setToggling(false)
-      product.reload()
     } catch (err) {
+      toast('error', errorMessage(err))
+    } finally {
       setToggling(false)
-      toast('error', err instanceof ApiError ? err.message : 'Something went wrong')
     }
   }
-  if (product.loading && !p) return <Spinner />
-  if (product.error || !p) {
+
+  if (!p && detail.status !== 'failed') return <Spinner />
+  if (!p) {
     return (
       <>
         <Link to="/products" className="mb-4 inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
           <ArrowLeft className="h-4 w-4" />
           Products
         </Link>
-        <ErrorBanner message={product.error ?? 'Product not found'} onRetry={product.reload} />
+        <ErrorBanner message={detail.error ?? 'Product not found'} onRetry={loadProduct} />
       </>
     )
   }
+
   return (
     <>
       <Link to="/products" className="mb-4 inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
@@ -275,15 +294,15 @@ export default function ProductDetailPage() {
         </div>
         {history.error && (
           <div className="p-4">
-            <ErrorBanner message={history.error} onRetry={history.reload} />
+            <ErrorBanner message={history.error} onRetry={loadHistory} />
           </div>
         )}
-        {history.loading && !history.data && <Spinner />}
-        {history.data && history.data.data.length === 0 && <EmptyState title="No stock changes in this period" />}
-        {history.data && history.data.data.length > 0 && (
+        {history.status === 'loading' && !history.meta && <Spinner />}
+        {history.meta && history.items.length === 0 && <EmptyState title="No stock changes in this period" />}
+        {history.meta && history.items.length > 0 && (
           <>
             <ul className="divide-y divide-slate-100">
-              {history.data.data.map((a) => (
+              {history.items.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <div className="min-w-0">
                     <div className="font-medium">{REASON_LABELS[a.reasonType] ?? a.reasonType}</div>
@@ -310,7 +329,7 @@ export default function ProductDetailPage() {
                 </li>
               ))}
             </ul>
-            <Pagination meta={history.data.meta} onPage={setPage} />
+            <Pagination meta={history.meta} onPage={setPage} />
           </>
         )}
       </Card>
@@ -321,7 +340,6 @@ export default function ProductDetailPage() {
           onClose={() => setEditing(false)}
           onSaved={() => {
             setEditing(false)
-            product.reload()
           }}
         />
       )}
@@ -331,7 +349,7 @@ export default function ProductDetailPage() {
           onClose={() => setAdjusting(false)}
           onDone={() => {
             setAdjusting(false)
-            refresh()
+            loadHistory()
           }}
         />
       )}

@@ -1,43 +1,52 @@
 import { ArrowLeft, Ban, CheckCheck, CircleCheck } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link, useParams } from 'react-router-dom'
-import { ApiError, get, post } from '../api/client'
-import { useWs } from '../auth/AuthContext'
 import { Button, Card, ConfirmDialog, ErrorBanner, Spinner, StatusBadge, useToast } from '../components/ui'
 import { formatDateTime, formatMoney } from '../lib/format'
-import { useAsync } from '../lib/hooks'
+import { errorMessage } from '../lib/hooks'
+import { fetchOrder, selectOrderDetail, transitionOrder } from '../store/ordersSlice'
+
+const SUCCESS = { confirm: 'Order confirmed', complete: 'Order completed', cancel: 'Order cancelled — reserved stock returned' }
+
 export default function OrderDetailPage() {
   const { id } = useParams()
-  const ws = useWs()
+  const dispatch = useDispatch()
   const toast = useToast()
   const [pending, setPending] = useState(null)
-  const { data: o, loading, error, reload } = useAsync(() => get(`${ws}/orders/${id}`), [ws, id])
+  const detail = useSelector(selectOrderDetail)
+  // ignore a previously viewed order still sitting in the store
+  const o = detail.item?.id === id ? detail.item : null
+
+  useEffect(() => {
+    dispatch(fetchOrder(id))
+  }, [dispatch, id])
+
   async function run(action) {
     try {
-      await post(`${ws}/orders/${id}/${action}`)
-      toast(
-        'success',
-        { confirm: 'Order confirmed', complete: 'Order completed', cancel: 'Order cancelled — reserved stock returned' }[action],
-      )
+      await dispatch(transitionOrder({ id, action })).unwrap()
+      toast('success', SUCCESS[action])
     } catch (err) {
-      toast('error', err instanceof ApiError ? err.message : 'Something went wrong')
+      toast('error', errorMessage(err))
+      dispatch(fetchOrder(id)) // the order may have changed elsewhere: always re-read on failure
     } finally {
       setPending(null)
-      reload() // always re-read: the order may have changed elsewhere
     }
   }
-  if (loading && !o) return <Spinner />
-  if (error || !o) {
+
+  if (!o && detail.status !== 'failed') return <Spinner />
+  if (!o) {
     return (
       <>
         <Link to="/orders" className="mb-4 inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
           <ArrowLeft className="h-4 w-4" />
           Orders
         </Link>
-        <ErrorBanner message={error ?? 'Order not found'} onRetry={reload} />
+        <ErrorBanner message={detail.error ?? 'Order not found'} onRetry={() => dispatch(fetchOrder(id))} />
       </>
     )
   }
+
   const canConfirm = o.status === 'pending'
   const canComplete = o.status === 'confirmed'
   const canCancel = o.status === 'pending' || o.status === 'confirmed'
@@ -47,6 +56,7 @@ export default function OrderDetailPage() {
     ['Completed', o.completedAt],
     ['Cancelled', o.cancelledAt],
   ]
+
   return (
     <>
       <Link to="/orders" className="mb-4 inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">

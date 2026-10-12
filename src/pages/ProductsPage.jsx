@@ -1,35 +1,48 @@
 import { Plus, Search } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link, useSearchParams } from 'react-router-dom'
-import { getPaged } from '../api/client'
-import { useAuth, useWs } from '../auth/AuthContext'
+import { useAuth } from '../auth/useAuth'
 import ProductForm from '../components/ProductForm'
 import { Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner, StockBadge } from '../components/ui'
 import { formatMoney } from '../lib/format'
-import { useAsync, useDebounced } from '../lib/hooks'
+import { useDebounced } from '../lib/hooks'
+import { fetchProducts, selectProductsList } from '../store/productsSlice'
+
 export default function ProductsPage() {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const { isOwner } = useAuth()
   const [sp, setSp] = useSearchParams()
   const [creating, setCreating] = useState(false)
   const [qInput, setQInput] = useState(sp.get('q') ?? '')
   const q = useDebounced(qInput)
+
   const active = sp.get('active') ?? ''
   const lowStock = sp.get('lowStock') ?? ''
   const sort = sp.get('sort') ?? 'name'
   const dir = sp.get('dir') ?? 'asc'
   const page = Number(sp.get('page') ?? 1)
+
   const update = (changes) => {
     const next = new URLSearchParams(sp)
-    for (const [k, v] of Object.entries(changes)) v ? next.set(k, v) : next.delete(k)
+    for (const [k, v] of Object.entries(changes)) {
+      if (v) next.set(k, v)
+      else next.delete(k)
+    }
     if (!('page' in changes)) next.delete('page')
     setSp(next, { replace: true })
   }
-  const { data, loading, error, reload } = useAsync(
-    () => getPaged(`${ws}/products`, { q, active, lowStock, sort, dir, page, pageSize: 10 }),
-    [ws, q, active, lowStock, sort, dir, page],
-  )
+
+  const { items, meta, status, error } = useSelector(selectProductsList)
+  const loading = status === 'loading'
+  const load = () => dispatch(fetchProducts({ q, active, lowStock, sort, dir, page, pageSize: 10 }))
+  useEffect(() => {
+    dispatch(fetchProducts({ q, active, lowStock, sort, dir, page, pageSize: 10 }))
+  }, [dispatch, q, active, lowStock, sort, dir, page])
+
+  const hasData = meta !== null
   const filtered = !!(q || active || lowStock)
+
   return (
     <>
       <PageHeader
@@ -90,11 +103,11 @@ export default function ProductsPage() {
 
         {error && (
           <div className="p-4">
-            <ErrorBanner message={error} onRetry={reload} />
+            <ErrorBanner message={error} onRetry={load} />
           </div>
         )}
-        {loading && !data && <Spinner />}
-        {data && data.data.length === 0 && (
+        {loading && !hasData && <Spinner />}
+        {hasData && items.length === 0 && (
           <EmptyState
             title={filtered ? 'No products match your filters' : 'No products yet'}
             hint={
@@ -121,7 +134,7 @@ export default function ProductsPage() {
             }
           />
         )}
-        {data && data.data.length > 0 && (
+        {hasData && items.length > 0 && (
           <div className={loading ? 'opacity-60 transition-opacity' : ''}>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left text-sm">
@@ -135,7 +148,7 @@ export default function ProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {data.data.map((p) => (
+                  {items.map((p) => (
                     <tr key={p.id} className={`hover:bg-slate-50 ${p.active ? '' : 'text-slate-400'}`}>
                       <td className="px-4 py-3 font-medium">
                         <Link to={`/products/${p.id}`} className="hover:underline">
@@ -157,7 +170,7 @@ export default function ProductsPage() {
               </table>
             </div>
             <ul className="divide-y divide-slate-100 md:hidden">
-              {data.data.map((p) => (
+              {items.map((p) => (
                 <li key={p.id}>
                   <Link to={`/products/${p.id}`} className="flex items-center justify-between gap-3 p-4">
                     <div className="min-w-0">
@@ -174,7 +187,7 @@ export default function ProductsPage() {
                 </li>
               ))}
             </ul>
-            <Pagination meta={data.meta} onPage={(n) => update({ page: String(n) })} />
+            <Pagination meta={meta} onPage={(n) => update({ page: String(n) })} />
           </div>
         )}
       </Card>
@@ -184,7 +197,7 @@ export default function ProductsPage() {
           onClose={() => setCreating(false)}
           onSaved={() => {
             setCreating(false)
-            reload()
+            load()
           }}
         />
       )}

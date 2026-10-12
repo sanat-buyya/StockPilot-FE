@@ -1,12 +1,14 @@
 import { AlertTriangle, DollarSign, Package, ShoppingCart } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
-import { get } from '../api/client'
-import { useAuth, useWs } from '../auth/AuthContext'
+import { useAuth } from '../auth/useAuth'
 import { Card, EmptyState, ErrorBanner, Field, Input, PageHeader, Spinner, StatusBadge } from '../components/ui'
 import { REASON_LABELS, formatDateTime, formatMoney, signed } from '../lib/format'
-import { useAsync } from '../lib/hooks'
+import { fetchDashboard, selectDashboard } from '../store/dashboardSlice'
+
 const STATUSES = ['pending', 'confirmed', 'completed', 'cancelled']
+
 function Stat({ icon, label, value, to, tone = 'slate', note }) {
   const body = (
     <Card className={`h-full p-4 ${to ? 'transition hover:border-brand-500' : ''}`}>
@@ -26,13 +28,20 @@ function Stat({ icon, label, value, to, tone = 'slate', note }) {
     body
   )
 }
+
 export default function DashboardPage() {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const { workspace } = useAuth()
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
-  const { data, loading, error, reload } = useAsync(() => get(`${ws}/dashboard`, { from, to }), [ws, from, to])
+  const { item: data, status, error } = useSelector(selectDashboard)
+  const loading = status === 'loading'
   const rangeInvalid = !!from && !!to && to < from
+
+  useEffect(() => {
+    if (!rangeInvalid) dispatch(fetchDashboard({ from, to }))
+  }, [dispatch, from, to, rangeInvalid])
+
   return (
     <>
       <PageHeader title="Dashboard" subtitle={workspace?.name} />
@@ -58,7 +67,7 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {error && <ErrorBanner message={error} onRetry={reload} />}
+      {error && <ErrorBanner message={error} onRetry={() => dispatch(fetchDashboard({ from, to }))} />}
       {loading && !data && <Spinner />}
       {data && !rangeInvalid && (
         <div className={loading ? 'opacity-60 transition-opacity' : ''}>

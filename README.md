@@ -4,7 +4,7 @@ React frontend for StockPilot (inventory and order management). It talks to the 
 [StockPilot-BE](https://github.com/sanat-buyya/StockPilot-BE), whose README documents the business rules in full
 (order lifecycle and stock strategy, roles, dashboard metric definitions, API, deployment, limitations, AI disclosure).
 
-**Stack:** React 19 · JavaScript (JSX) · Vite · Tailwind CSS 4 · react-router · lucide-react icons · Vitest
+**Stack:** React 19 · JavaScript (JSX) · Vite · Tailwind CSS 4 · Redux Toolkit (slices + thunks) · Axios · react-router · lucide-react icons · Vitest
 
 ## Setup
 
@@ -44,22 +44,41 @@ Loading, empty, error and success states are handled on every screen; layouts wo
 
 ```
 src/
-  api/        client.js (fetch wrapper, ApiError, token storage)
-  auth/       AuthContext: session, workspace list, selected workspace, role
-  components/ ui.jsx (Button, Field, Modal, ConfirmDialog, Pagination, Toasts, badges), Layout, ProductForm
-  lib/        format.js (money in integer cents, dates), hooks.js (useAsync, useDebounced)
+  api/        client.js: Axios instance, interceptors (bearer token, error normalisation, 401 handling), get/post/patch/del helpers
+  store/      Redux Toolkit: one slice per feature + thunks (see below); thunkUtils.js shared helpers; index.js configureStore
+  auth/       useAuth.js: hook over the auth slice (user, workspaces, selected workspace, role, actions)
+  components/ ui.jsx (Button, Field, Modal, ConfirmDialog, Pagination, Toaster, badges), Layout, ProductForm
+  lib/        format.js (money in integer cents, dates), hooks.js (useDebounced)
   pages/      one file per screen
 ```
 
-- **Routing:** `react-router`. `Protected` redirects to `/login`; `OwnerOnly` guards the Team page. Every screen under `Layout` is re-mounted when the workspace changes, so no data from one workspace lingers in another.
-- **Data loading:** `useAsync` runs a loader when its inputs change, ignores stale responses (fast typing/filtering cannot show out-of-order results), and exposes `loading`, `error` and `reload`.
-- **State in the URL:** list filters, sort and page live in the query string, so views are shareable, survive reload, and dashboard cards can deep-link (for example `/products?lowStock=true`).
+**State management (Redux Toolkit).** All server data lives in the store; components dispatch thunks and read with selectors.
+
+| Slice | Holds | Thunks |
+|---|---|---|
+| `auth` | session, workspaces, selected workspace | `bootstrapAuth`, `login`, `register`, `createWorkspace` |
+| `products` | list, picker options, open product | `fetchProducts`, `fetchProductOptions`, `fetchProduct`, `createProduct`, `updateProduct`, `adjustStock` |
+| `inventory` | workspace-wide and per-product stock history | `fetchAdjustments`, `fetchProductHistory` |
+| `orders` | list, open order | `fetchOrders`, `fetchOrder`, `createOrder`, `transitionOrder` |
+| `dashboard` | metrics | `fetchDashboard` |
+| `team` | members | `fetchMembers`, `addMember`, `changeMemberRole`, `removeMember` |
+| `ui` | toasts | `showToast` (plain thunk) |
+
+**Axios layer.** One `http` instance. A request interceptor adds `Authorization: Bearer <token>`; a response interceptor converts every failure into an `ApiError` (`code`, `message`, `details`, `fieldErrors`) and signs the user out on a 401.
+
+**Thunks.** Built with `createAsyncThunk` through `apiThunk`, which turns any failure into a serialisable rejection value. Thunks resolve the current workspace from the store (`wsPath`), so pages never pass workspace ids around. Mutations are awaited with `dispatch(thunk()).unwrap()` and surface field errors in forms.
+
+- **Routing:** `react-router`. `Protected` redirects to `/login`; `OwnerOnly` guards the Team page. Screens re-mount when the workspace changes.
+- **No cross-workspace leaks:** every data slice resets itself on `selectWorkspace`, `logout` and `createWorkspace`.
+- **Out-of-order protection:** list slices remember the latest `requestId`; a slow, superseded response is ignored (tested).
+- **State in the URL:** list filters, sort and page live in the query string, so views are shareable and dashboard cards can deep-link (for example `/products?lowStock=true`).
 
 ## Technical decisions
 
 | Decision | Why |
 |---|---|
-| **No state library** | The app is request/response over a REST API; a small context for auth plus `useAsync` is enough and easier to follow. |
+| **Redux Toolkit (slices + thunks)** | A shared, predictable store for server data used across screens (a product edited on one page is current on the next; a cancelled order updates the detail view immediately). Slices keep status/error/data uniform and testable without rendering components. |
+| **Axios with interceptors** | Auth header, error normalisation and 401 handling live in one place instead of in every call. |
 | **Server is the source of truth** | All filtering, pagination and totals happen on the API. The order screen shows only an *estimated* total (integer-cent math) and the server recalculates the real one. |
 | **Money never uses floats** | Prices are decimal strings from the API; arithmetic uses integer cents (`lib/format.js`, unit-tested). |
 | **Bearer token in `localStorage`** | Works across origins without cookie/`SameSite` configuration. Trade-off: readable by XSS (documented in the backend README). A 401 clears the session and returns to login. |
@@ -76,7 +95,7 @@ npm test          # Vitest (unit)
 npm run lint      # oxlint
 ```
 
-Unit tests cover the money helpers (exact decimal parsing/summing, formatting). Business rules (stock, order lifecycle,
+Unit tests (12) cover the money helpers and the data layer: the Axios interceptors (bearer token, error mapping, 401 sign-out), thunks (idempotency key sent, no totals sent, serialisable rejections, order transitions updating the store) and slice behaviour (stale responses ignored, data cleared on workspace switch/logout). A fake Axios adapter is used, so tests need no network.
 isolation, concurrency) are tested where they are enforced, in the backend: `./mvnw test` runs 36 tests against a real
 PostgreSQL (see the backend README for the scenario map).
 

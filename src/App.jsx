@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
+import { useDispatch } from 'react-redux'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
-import { useAuth } from './auth/AuthContext'
+import { useAuth } from './auth/useAuth'
 import Layout from './components/Layout'
 import { Spinner } from './components/ui'
 import { LoginPage, RegisterPage } from './pages/AuthPages'
@@ -11,17 +13,27 @@ import OrdersPage from './pages/OrdersPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import ProductsPage from './pages/ProductsPage'
 import TeamPage from './pages/TeamPage'
+import { bootstrapAuth } from './store/authSlice'
+
 function Protected() {
-  const { ready, user } = useAuth()
-  if (!ready) return <Spinner label="Loading your workspace…" />
+  const { user } = useAuth()
   return user ? <Outlet /> : <Navigate to="/login" replace />
 }
+
 function OwnerOnly() {
   const { isOwner } = useAuth()
   return isOwner ? <Outlet /> : <Navigate to="/" replace />
 }
+
 export default function App() {
+  const dispatch = useDispatch()
   const { ready } = useAuth()
+
+  // Restore the session (if a token is stored) once, on first load.
+  useEffect(() => {
+    dispatch(bootstrapAuth())
+  }, [dispatch])
+
   if (!ready) return <Spinner label="Loading…" />
   return (
     <Routes>

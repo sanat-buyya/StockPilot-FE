@@ -1,13 +1,16 @@
 import { ArrowLeft, Minus, Plus, Search, Trash2 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link, useNavigate } from 'react-router-dom'
-import { ApiError, getPaged, post } from '../api/client'
-import { useWs } from '../auth/AuthContext'
 import { Button, Card, EmptyState, ErrorBanner, Field, Input, Spinner, StockBadge, Textarea, useToast } from '../components/ui'
 import { centsToString, formatMoney, toCents } from '../lib/format'
-import { useAsync, useDebounced } from '../lib/hooks'
+import { errorMessage } from '../lib/hooks'
+import { useDebounced } from '../lib/hooks'
+import { createOrder } from '../store/ordersSlice'
+import { fetchProductOptions, selectProductOptions } from '../store/productsSlice'
+
 export default function OrderNewPage() {
-  const ws = useWs()
+  const dispatch = useDispatch()
   const nav = useNavigate()
   const toast = useToast()
   const [search, setSearch] = useState('')
@@ -19,7 +22,13 @@ export default function OrderNewPage() {
   const [problems, setProblems] = useState([])
   // One key per form instance: if the request is retried (double click, network blip) the server returns the same order.
   const idemKey = useRef(`order-${crypto.randomUUID()}`)
-  const products = useAsync(() => getPaged(`${ws}/products`, { q, active: true, pageSize: 8 }), [ws, q])
+
+  const options = useSelector(selectProductOptions)
+  const loadOptions = () => dispatch(fetchProductOptions({ q, active: true, pageSize: 8 }))
+  useEffect(() => {
+    dispatch(fetchProductOptions({ q, active: true, pageSize: 8 }))
+  }, [dispatch, q])
+
   const lineFor = (id) => lines.find((l) => l.product.id === id)
   const add = (product) => {
     setProblems([])
@@ -31,6 +40,7 @@ export default function OrderNewPage() {
   }
   const setQty = (id, quantity) => setLines((ls) => ls.map((l) => (l.product.id === id ? { ...l, quantity } : l)))
   const remove = (id) => setLines((ls) => ls.filter((l) => l.product.id !== id))
+
   const estimateCents = lines.reduce(
     (sum, l) => sum + toCents(l.product.unitPrice) * (Number.isInteger(l.quantity) && l.quantity > 0 ? l.quantity : 0),
     0,
@@ -42,33 +52,32 @@ export default function OrderNewPage() {
         ? `Only ${l.product.stockQuantity} in stock`
         : ''
   const hasLineErrors = lines.some((l) => lineError(l))
+
   async function submit() {
     if (lines.length === 0 || hasLineErrors || busy) return
     setBusy(true)
     setError('')
     setProblems([])
     try {
-      const order = await post(
-        `${ws}/orders`,
-        {
+      const order = await dispatch(
+        createOrder({
           items: lines.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
           notes: notes.trim() || undefined,
-        },
-        { 'Idempotency-Key': idemKey.current },
-      )
+          idempotencyKey: idemKey.current,
+        }),
+      ).unwrap()
       toast('success', `${order.orderNumber} created — stock reserved`)
       nav(`/orders/${order.id}`, { replace: true })
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-        if (Array.isArray(err.details)) setProblems(err.details)
-        // Stock may have changed under us: refresh the picker so the numbers shown are current.
-        if (err.code === 'INSUFFICIENT_STOCK' || err.code === 'INACTIVE_PRODUCT') products.reload()
-      } else setError('Something went wrong')
+      setError(errorMessage(err))
+      if (Array.isArray(err?.details)) setProblems(err.details)
+      // Stock may have changed under us: refresh the picker so the numbers shown are current.
+      if (err?.code === 'INSUFFICIENT_STOCK' || err?.code === 'INACTIVE_PRODUCT') loadOptions()
     } finally {
       setBusy(false)
     }
   }
+
   return (
     <>
       <Link to="/orders" className="mb-4 inline-flex items-center gap-1 text-sm text-brand-600 hover:underline">
@@ -92,17 +101,17 @@ export default function OrderNewPage() {
               />
             </div>
           </div>
-          {products.loading && !products.data && <Spinner />}
-          {products.error && (
+          {options.status === 'loading' && !options.meta && <Spinner />}
+          {options.error && (
             <div className="p-4">
-              <ErrorBanner message={products.error} onRetry={products.reload} />
+              <ErrorBanner message={options.error} onRetry={loadOptions} />
             </div>
           )}
-          {products.data && products.data.data.length === 0 && (
+          {options.meta && options.items.length === 0 && (
             <EmptyState title="No active products found" hint="Only active products can be ordered." />
           )}
           <ul className="divide-y divide-slate-100">
-            {products.data?.data.map((p) => {
+            {options.items.map((p) => {
               const inCart = lineFor(p.id)
               const out = p.stockQuantity === 0
               return (
