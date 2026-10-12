@@ -61,7 +61,7 @@ src/
 |---|---|
 | **No state library** | The app is request/response over a REST API; a small context for auth plus `useAsync` is enough and easier to follow. |
 | **Server is the source of truth** | All filtering, pagination and totals happen on the API. The order screen shows only an *estimated* total (integer-cent math) and the server recalculates the real one. |
-| **Money never uses floats** | Prices are decimal strings from the API; arithmetic uses integer cents (`lib/format.ts`, unit-tested). |
+| **Money never uses floats** | Prices are decimal strings from the API; arithmetic uses integer cents (`lib/format.js`, unit-tested). |
 | **Bearer token in `localStorage`** | Works across origins without cookie/`SameSite` configuration. Trade-off: readable by XSS (documented in the backend README). A 401 clears the session and returns to login. |
 | **Idempotency key per order form** | One key is generated per New-order form instance and sent as `Idempotency-Key`, so a double click or retry cannot create two orders. |
 | **Confirm before consequential actions** | Cancelling an order, completing it, deactivating a product and adjusting stock all show a confirmation that explains the effect. |
