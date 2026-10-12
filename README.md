@@ -115,3 +115,20 @@ fallback for Vercel and Netlify. Set the backend's `CORS_ORIGINS` to the exact f
 - Plain JavaScript (no static types): API response shapes are documented in the backend README rather than enforced at compile time.
 - Token is not refreshed; after it expires (8 h) the user is sent back to the login page.
 - Amounts are displayed in Indian Rupees (₹) and dates/times in IST (Asia/Kolkata); the backend does not model currencies or per-user timezones.
+
+## AI use disclosure
+
+I built this frontend together with an AI coding assistant, **Claude (Claude Code)**.
+
+**What the AI did:** it wrote most of the code, including the pages, the shared components, the Redux slices and thunks, the Axios setup and the tests, based on the assessment brief and on the changes I asked for along the way.
+
+**What I did:**
+- I picked the tools (React, Tailwind, lucide-react, Redux Toolkit, Axios) and the language (plain JavaScript).
+- I looked at every screen and told it what to change: the header and sidebar layout, rupees and IST, the compact filter bars, 10 items per page, the quantity stepper, and removing things I did not want, like the demo-accounts box on the login page.
+- I deployed it on Vercel and connected it to the backend on Render.
+
+**How it was checked:** the tests pass, the production build works, and the app was clicked through in a browser against the real backend: login, products, stock changes, orders, roles, workspaces and the team page. That testing found and fixed a few real issues, for example the stepper losing a click when pressed very quickly.
+
+**What I should be able to explain:** how the data layer works (a page dispatches a thunk, Axios calls the API, a slice stores the result), how the app handles errors and expired logins, and why the frontend only shows the order total as an estimate while the server calculates the real one.
+
+The full AI-use statement, with assumptions and the bugs found, is in the backend README. I am responsible for everything in this repository, including the parts the AI wrote.
