@@ -64,16 +64,10 @@ export function Textarea({ invalid, className, ...rest }) {
 export function Card({ children, className }) {
   return <div className={cx('rounded-xl border border-slate-200 bg-white shadow-sm', className)}>{children}</div>
 }
-export function PageHeader({ title, subtitle, actions }) {
-  return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
-      </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-    </div>
-  )
+/** Page-level actions (e.g. "New product"), right-aligned. The page name itself is shown in the top header bar. */
+export function PageHeader({ actions }) {
+  if (!actions) return null
+  return <div className="mb-3 flex flex-wrap justify-end gap-2">{actions}</div>
 }
 export function Spinner({ label = 'Loading…' }) {
   return (
